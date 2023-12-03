@@ -13,9 +13,7 @@ canvas = None
 instruction_label = None
 imgtk = None  # Pour stocker l'image Tkinter
 
-# Exemple de fonctions de calcul de coût 
-
-
+# Exemple de fonctions de calcul de coût
 def cost_function_lab(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
@@ -26,75 +24,36 @@ def cost_function_labDif(point1, point2, image_lab):
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return abs(L1 - L2)
 
-def cost_function_rgb(point1, point2, image):
-    pixel1 = image[point1[0], point1[1]].astype(int)
-    pixel2 = image[point2[0], point2[1]].astype(int)
-    return np.linalg.norm(pixel1 - pixel2)
+# Fonction de conversion RGB en Lab*
+def rgb_to_lab(image_rgb):
+    return cv2.cvtColor(image_rgb, cv2.COLOR_BGR2Lab)
 
-def cost_function_manhattan(point1, point2, image):
-    pixel1 = image[point1[0], point1[1]].astype(int)
-    pixel2 = image[point2[0], point2[1]].astype(int)
-    return np.sum(np.abs(pixel1 - pixel2))
+# Fonction de conversion Lab* en RGB
+def lab_to_rgb(image_lab):
+    return cv2.cvtColor(image_lab, cv2.COLOR_Lab2BGR)
 
-def cost_function_combined(point1, point2, image, alpha=1.0, beta=1.0):
-    pixel1 = image[point1[0], point1[1]].astype(int)
-    pixel2 = image[point2[0], point2[1]].astype(int)
-    color_cost = np.linalg.norm(pixel1 - pixel2)
-    spatial_cost = np.linalg.norm(np.array(point1) - np.array(point2))
-    total_cost = alpha * color_cost + beta * spatial_cost
-    return total_cost
+# Fonction de coût en Lab* basée sur la luminosité
+def cost_function_lab_luminance(point1, point2, image_lab):
+    L1, _, _ = image_lab[point1[0], point1[1]].astype(int)
+    L2, _, _ = image_lab[point2[0], point2[1]].astype(int)
+    return abs(L1 - L2)
 
+# Fonction de coût en Lab* basée sur la différence a*
+def cost_function_lab_a_difference(point1, point2, image_lab):
+    _, a1, _ = image_lab[point1[0], point1[1]].astype(int)
+    _, a2, _ = image_lab[point2[0], point2[1]].astype(int)
+    return abs(a1 - a2)
 
+# Fonction de coût en Lab* basée sur la différence b*
+def cost_function_lab_b_difference(point1, point2, image_lab):
+    _, _, b1 = image_lab[point1[0], point1[1]].astype(int)
+    _, _, b2 = image_lab[point2[0], point2[1]].astype(int)
+    return abs(b1 - b2)
 
+# ...
+# Définissez d'autres fonctions de coût Lab* si nécessaire
 
-
-
-
-
-# ----------------------------------------------------------------------
-""" def dijkstra(image_lab, start, end):
-    height, width = image_lab.shape[:2]
-    visited = np.full((height, width), False, dtype=bool)
-    distance_map = np.full((height, width), np.inf)
-    parent_map = np.full((height, width, 2), -1, dtype=int)
-
-    distance_map[start] = 0
-    priority_queue = [(0, start)]
-
-    while priority_queue:
-        dist, current_node = heapq.heappop(priority_queue)
-        if visited[current_node]:
-            continue
-        visited[current_node] = True
-
-        if current_node == end:
-            break
-
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                new_x = current_node[1] + dx
-                new_y = current_node[0] + dy
-                neighbor = (new_y, new_x)
-
-                if 0 <= new_x < width and 0 <= new_y < height and not visited[neighbor]:
-                    cost = cost_function_lab(current_node, neighbor, image_lab)
-                    new_dist = dist + cost
-                    if new_dist < distance_map[neighbor]:
-                        distance_map[neighbor] = new_dist
-                        parent_map[neighbor] = current_node
-                        heapq.heappush(priority_queue, (new_dist, neighbor))
-
-    path = [end]
-    while path[-1] != start:
-        parent = tuple(parent_map[path[-1]])
-        path.append(parent)
-
-    return path[::-1]  """
-
- 
-def dijkstra(image_lab, start, end):
+def dijkstra(image_lab, start, end, cost_function):
     height, width = image_lab.shape[:2]
     visited = np.full((height, width), False, dtype=bool)
     distance_map = np.full((height, width), np.inf)
@@ -117,9 +76,8 @@ def dijkstra(image_lab, start, end):
             new_y = current_node[0] + dy
             neighbor = (new_y, new_x)
 
-
             if 0 <= new_x < width and 0 <= new_y < height and not visited[neighbor]:
-                cost = cost_function_lab(current_node, neighbor, image_lab)
+                cost = cost_function(current_node, neighbor, image_lab)
                 new_dist = dist + cost
                 if new_dist < distance_map[neighbor]:
                     distance_map[neighbor] = new_dist
@@ -132,7 +90,6 @@ def dijkstra(image_lab, start, end):
         path.append(parent)
 
     return path[::-1]
-  
 
 def update_instructions(text):
     instruction_label.config(text=text)
@@ -141,7 +98,7 @@ def find_shortest_path():
     global image, points, canvas, imgtk
     if len(points) == 2:
         start, end = points
-        path = dijkstra(image, start[::-1], end[::-1])
+        path = dijkstra(image, start[::-1], end[::-1], cost_function_lab_luminance)
 
         # Dessiner le chemin sur l'image
         for i in range(len(path) - 1):
@@ -169,8 +126,7 @@ def on_canvas_click(event):
 
 def refresh_image():
     global canvas, image, window, imgtk
-    image_for_tk = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    
+    image_for_tk = lab_to_rgb(image)
     im = Image.fromarray(image_for_tk)
     imgtk = ImageTk.PhotoImage(image=im)
     canvas.create_image(0, 0, anchor="nw", image=imgtk)
@@ -189,8 +145,11 @@ def main():
         print("Erreur : Impossible de charger l'image.")
         return
 
+    # Convertir l'image en Lab*
+    image = rgb_to_lab(image)
+
     # Conversion pour affichage dans Tkinter
-    image_for_tk = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_for_tk = lab_to_rgb(image)
     im = Image.fromarray(image_for_tk)
     imgtk = ImageTk.PhotoImage(image=im)
 
