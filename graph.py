@@ -19,6 +19,13 @@ def cost_function_lab(point1, point2, image_lab):
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return np.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2)
 
+""" def cost_function_euclidean(point1, point2):
+    return np.linalg.norm(np.array(point1) - np.array(point2)) """
+
+
+""" def cost_function_manhattan(point1, point2):
+    return np.sum(np.abs(np.array(point1) - np.array(point2)))
+ """
 def cost_function_labDif(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
@@ -79,6 +86,9 @@ def dijkstra(image_lab, start, end, cost_function):
             if 0 <= new_x < width and 0 <= new_y < height and not visited[neighbor]:
                 cost = cost_function(current_node, neighbor, image_lab)
                 new_dist = dist + cost
+                """ spatial_cost = np.linalg.norm(np.array(current_node) - np.array(neighbor))
+                cost = spatial_cost 
+                new_dist = dist + cost """
                 if new_dist < distance_map[neighbor]:
                     distance_map[neighbor] = new_dist
                     parent_map[neighbor] = current_node
