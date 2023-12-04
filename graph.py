@@ -1,4 +1,5 @@
 import heapq
+from tkinter import filedialog
 import cv2
 import numpy as np
 import tkinter as tk
@@ -32,6 +33,12 @@ def rgb_to_lab(image_rgb):
 # Fonction de conversion Lab* en RGB
 def lab_to_rgb(image_lab):
     return cv2.cvtColor(image_lab, cv2.COLOR_Lab2BGR)
+
+# Fonction d'application du filtre gaussien
+def apply_bilateral_filter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75):
+    return cv2.bilateralFilter(image_rgb, d, sigmaColor, sigmaSpace)
+
+
 
 # ...
 # Définissez d'autres fonctions de coût Lab* si nécessaire
@@ -78,6 +85,21 @@ def dijkstra(image_lab, start, end, cost_function):
 def update_instructions(text):
     instruction_label.config(text=text)
 
+def has_path(graph, start, end):
+    visited = set()
+    stack = [start]
+
+    while stack:
+        node = stack.pop()
+        if node == end:
+            return True
+        if node not in visited:
+            visited.add(node)
+            stack.extend(graph.get(node, []))
+
+    return False
+
+
 def find_shortest_path():
     global image, points, canvas, imgtk, graph
     if len(points) == 2:
@@ -91,18 +113,15 @@ def find_shortest_path():
         # Mettre à jour l'image affichée dans Tkinter
         refresh_image()
 
-        # Trouver le chemin dans le graphe
-        shortest_path = []
-        for point in path:
-            shortest_path.append((point[1], point[0]))
-        if has_path(graph, shortest_path[0], shortest_path[-1]):
-            print("Chemin le plus court (sommets du graphe) :", shortest_path)
-        else:
-            print("Aucun chemin trouvé dans le graphe.")
+        # Le chemin trouvé est simplement path
+        print("Chemin le plus court :", path)
+
 
 def show_button():
     btn = Button(window, text="Trouver le chemin le plus court", command=find_shortest_path)
     btn.pack(side="bottom")
+
+
 
 def on_canvas_click(event):
     global points, image, canvas, imgtk
@@ -123,55 +142,77 @@ def refresh_image():
     im = Image.fromarray(image_for_tk)
     imgtk = ImageTk.PhotoImage(image=im)
     canvas.create_image(0, 0, anchor="nw", image=imgtk)
+""" 
+def reset_selection():
+    global image, points, canvas, imgtk, shortest_path
+    points = []  # Réinitialiser les points sélectionnés
+    shortest_path = []  # Réinitialiser le chemin précédent
+    image = rgb_to_lab(cv2.imread('scanner.png'))
+    refresh_image()
+    update_instructions("Veuillez sélectionner le point 1.")
+ """
+# Fonction pour réinitialiser la sélection de points
+def reset_selection():
+    global image, points, canvas, imgtk
+    points = []  # Réinitialiser les points sélectionnés
+    
+    # Charger l'image originale
+    original_image = cv2.imread('scanner.png')
+    if original_image is None:
+        print("Erreur : Impossible de charger l'image.")
+        return
+    
+    # Appliquer le filtre gaussien sur l'image RGB
+    image_rgb_blurred = apply_bilateral_filter(original_image)
+    
+    # Convertir l'image lissée en Lab*
+    image = rgb_to_lab(image_rgb_blurred)
+    
+    refresh_image()
+    update_instructions("Veuillez sélectionner le point 1.")
 
-def has_path(graph, start, end):
-    visited = set()
-    stack = [start]
 
-    while stack:
-        node = stack.pop()
-        if node == end:
-            return True
-        if node not in visited:
-            visited.add(node)
-            stack.extend(graph.get(node, []))
+    
+def show_reset_button():
+    reset_btn = Button(window, text="Réinitialiser", command=reset_selection)
+    reset_btn.pack(side="bottom")
 
-    return False
+
+# Fonction pour charger une image
+def load_image():
+    global image, canvas, window, imgtk
+
+    file_path = filedialog.askopenfilename()
+    if file_path:
+        # Charger l'image
+        original_image = cv2.imread(file_path)
+        if original_image is None:
+            print("Erreur : Impossible de charger l'image.")
+            return
+
+        # Appliquer le filtre gaussien sur l'image RGB
+        image_rgb_blurred = apply_bilateral_filter(original_image)
+
+        # Convertir l'image lissée en Lab*
+        image = rgb_to_lab(image_rgb_blurred)
+
+        # Mettre à jour l'image affichée dans Tkinter
+        refresh_image()
+
+        # Redimensionner la fenêtre en fonction de la taille de l'image
+        window.geometry(f"{image.shape[1]}x{image.shape[0]}")
+
+        update_instructions("Veuillez sélectionner le point 1.")
 
 def print_graph(graph):
     print("Graphe :")
     for node, neighbors in graph.items():
         print(f"Sommets {node} a pour voisins : {neighbors}")
 
-def main():
-    global image, window, canvas, instruction_label, imgtk, graph
-    window = tk.Tk()
-    window.title("Trouver le chemin le plus court")
+def create_graph(image_lab):
+    graph = {}
+    height, width = image_lab.shape[:2]
 
-    instruction_label = Label(window, text="Veuillez sélectionner le point 1.")
-    instruction_label.pack(side="top")
-
-    # Charger l'image et vérifier si elle est chargée correctement
-    image = cv2.imread('Mona_LisaColor.png')
-    if image is None:
-        print("Erreur : Impossible de charger l'image.")
-        return
-
-    # Convertir l'image en Lab*
-    image = rgb_to_lab(image)
-
-    # Conversion pour affichage dans Tkinter
-    image_for_tk = lab_to_rgb(image)
-    im = Image.fromarray(image_for_tk)
-    imgtk = ImageTk.PhotoImage(image=im)
-
-    canvas = tk.Canvas(window, width=imgtk.width(), height=imgtk.height())
-    canvas.pack(side="top", fill="both", expand=True)
-    canvas.create_image(0, 0, anchor="nw", image=imgtk)
-    canvas.bind("<Button-1>", on_canvas_click)
-
-    # Créer le graphe représentant les connexions entre les pixels voisins
-    height, width = image.shape[:2]
     for y in range(height):
         for x in range(width):
             neighbors = []
@@ -181,8 +222,37 @@ def main():
                 neighbors.append((y - 1, x))  # Connexions verticales
             graph[(y, x)] = neighbors
 
-    print_graph(graph)  # Imprimez le graphe
+    return graph
+
+
+def main():
+    global image, window, canvas, instruction_label, imgtk, graph
+    window = tk.Tk()
+    window.title("Trouver le chemin le plus court")
+
+    instruction_label = Label(window, text="Veuillez sélectionner le point 1.")
+    instruction_label.pack(side="top")
+
+    # Créer le canvas ici pour éviter l'erreur AttributeError
+    canvas = tk.Canvas(window, width=600, height=400)  # Assurez-vous que la taille est correcte pour votre image
+    canvas.pack(side="top", fill="both", expand=True)
+    
+    # Initialisation de l'image avec le filtre gaussien et conversion en Lab*
+    reset_selection()  # Cette fonction va maintenant charger l'image, appliquer le filtre gaussien, convertir en Lab* et rafraîchir l'image
+
+    # Créez le graphe en utilisant la fonction create_graph
+    graph = create_graph(image)
+
+   # print_graph(graph)  # Imprimez le graphe
+
+    # Créer un bouton pour réinitialiser la sélection de points
+    reset_btn = Button(window, text="Réinitialiser", command=reset_selection)
+    reset_btn.pack(side="bottom")
+
+    canvas.bind("<Button-1>", on_canvas_click)  # S'assurer que le canvas est prêt avant de lier les événements
+  
     window.mainloop()
+
 
 if __name__ == "__main__":
     main()
