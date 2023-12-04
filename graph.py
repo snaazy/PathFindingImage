@@ -12,6 +12,7 @@ window = None
 canvas = None
 instruction_label = None
 imgtk = None  # Pour stocker l'image Tkinter
+graph = {}  # Le graphe représenté par un dictionnaire
 
 # Exemple de fonctions de calcul de coût
 def cost_function_lab(point1, point2, image_lab):
@@ -19,13 +20,6 @@ def cost_function_lab(point1, point2, image_lab):
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return np.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2)
 
-""" def cost_function_euclidean(point1, point2):
-    return np.linalg.norm(np.array(point1) - np.array(point2)) """
-
-
-""" def cost_function_manhattan(point1, point2):
-    return np.sum(np.abs(np.array(point1) - np.array(point2)))
- """
 def cost_function_labDif(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
@@ -38,24 +32,6 @@ def rgb_to_lab(image_rgb):
 # Fonction de conversion Lab* en RGB
 def lab_to_rgb(image_lab):
     return cv2.cvtColor(image_lab, cv2.COLOR_Lab2BGR)
-
-# Fonction de coût en Lab* basée sur la luminosité
-def cost_function_lab_luminance(point1, point2, image_lab):
-    L1, _, _ = image_lab[point1[0], point1[1]].astype(int)
-    L2, _, _ = image_lab[point2[0], point2[1]].astype(int)
-    return abs(L1 - L2)
-
-# Fonction de coût en Lab* basée sur la différence a*
-def cost_function_lab_a_difference(point1, point2, image_lab):
-    _, a1, _ = image_lab[point1[0], point1[1]].astype(int)
-    _, a2, _ = image_lab[point2[0], point2[1]].astype(int)
-    return abs(a1 - a2)
-
-# Fonction de coût en Lab* basée sur la différence b*
-def cost_function_lab_b_difference(point1, point2, image_lab):
-    _, _, b1 = image_lab[point1[0], point1[1]].astype(int)
-    _, _, b2 = image_lab[point2[0], point2[1]].astype(int)
-    return abs(b1 - b2)
 
 # ...
 # Définissez d'autres fonctions de coût Lab* si nécessaire
@@ -86,9 +62,7 @@ def dijkstra(image_lab, start, end, cost_function):
             if 0 <= new_x < width and 0 <= new_y < height and not visited[neighbor]:
                 cost = cost_function(current_node, neighbor, image_lab)
                 new_dist = dist + cost
-                """ spatial_cost = np.linalg.norm(np.array(current_node) - np.array(neighbor))
-                cost = spatial_cost 
-                new_dist = dist + cost """
+
                 if new_dist < distance_map[neighbor]:
                     distance_map[neighbor] = new_dist
                     parent_map[neighbor] = current_node
@@ -105,10 +79,10 @@ def update_instructions(text):
     instruction_label.config(text=text)
 
 def find_shortest_path():
-    global image, points, canvas, imgtk
+    global image, points, canvas, imgtk, graph
     if len(points) == 2:
         start, end = points
-        path = dijkstra(image, start[::-1], end[::-1], cost_function_lab_luminance)
+        path = dijkstra(image, start[::-1], end[::-1], cost_function_lab)
 
         # Dessiner le chemin sur l'image
         for i in range(len(path) - 1):
@@ -116,6 +90,15 @@ def find_shortest_path():
 
         # Mettre à jour l'image affichée dans Tkinter
         refresh_image()
+
+        # Trouver le chemin dans le graphe
+        shortest_path = []
+        for point in path:
+            shortest_path.append((point[1], point[0]))
+        if has_path(graph, shortest_path[0], shortest_path[-1]):
+            print("Chemin le plus court (sommets du graphe) :", shortest_path)
+        else:
+            print("Aucun chemin trouvé dans le graphe.")
 
 def show_button():
     btn = Button(window, text="Trouver le chemin le plus court", command=find_shortest_path)
@@ -141,8 +124,27 @@ def refresh_image():
     imgtk = ImageTk.PhotoImage(image=im)
     canvas.create_image(0, 0, anchor="nw", image=imgtk)
 
+def has_path(graph, start, end):
+    visited = set()
+    stack = [start]
+
+    while stack:
+        node = stack.pop()
+        if node == end:
+            return True
+        if node not in visited:
+            visited.add(node)
+            stack.extend(graph.get(node, []))
+
+    return False
+
+def print_graph(graph):
+    print("Graphe :")
+    for node, neighbors in graph.items():
+        print(f"Sommets {node} a pour voisins : {neighbors}")
+
 def main():
-    global image, window, canvas, instruction_label, imgtk
+    global image, window, canvas, instruction_label, imgtk, graph
     window = tk.Tk()
     window.title("Trouver le chemin le plus court")
 
@@ -150,7 +152,7 @@ def main():
     instruction_label.pack(side="top")
 
     # Charger l'image et vérifier si elle est chargée correctement
-    image = cv2.imread('road.png')
+    image = cv2.imread('Mona_LisaColor.png')
     if image is None:
         print("Erreur : Impossible de charger l'image.")
         return
@@ -168,6 +170,18 @@ def main():
     canvas.create_image(0, 0, anchor="nw", image=imgtk)
     canvas.bind("<Button-1>", on_canvas_click)
 
+    # Créer le graphe représentant les connexions entre les pixels voisins
+    height, width = image.shape[:2]
+    for y in range(height):
+        for x in range(width):
+            neighbors = []
+            if x > 0:
+                neighbors.append((y, x - 1))  # Connexions horizontales
+            if y > 0:
+                neighbors.append((y - 1, x))  # Connexions verticales
+            graph[(y, x)] = neighbors
+
+    print_graph(graph)  # Imprimez le graphe
     window.mainloop()
 
 if __name__ == "__main__":
