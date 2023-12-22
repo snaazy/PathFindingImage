@@ -127,7 +127,7 @@ def on_canvas_click(event):
     if len(points) < 2:
         x, y = event.x, event.y
         points.append((x, y))
-        cv2.circle(image, (x, y), 5, (0, 0, 255), -1)
+        cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
         refresh_image()
         if len(points) == 1:
             update_instructions(f"Point 1 sélectionné : ({x}, {y}). Veuillez sélectionner le point 2.")
@@ -153,23 +153,24 @@ def reset_selection():
 # Fonction pour réinitialiser la sélection de points
 def reset_selection():
     global image, points, canvas, imgtk
-    points = [] 
-    
-    # charge l'image originale
-    original_image = cv2.imread('scanner.png')
-    if original_image is None:
-        print("Erreur : Impossible de charger l'image.")
-        return
-    
-    # applique le filtre gaussien sur l'image RGB
-    image_rgb_blurred = apply_bilateral_filter(original_image)
-    
-    # convertit l'image lissée en Lab*
-    image = rgb_to_lab(image_rgb_blurred)
-    
-    refresh_image()
-    update_instructions("Veuillez sélectionner le point 1.")
+    points = []
 
+    file_path = filedialog.askopenfilename()
+    if file_path:
+        # charge l'image
+        original_image = cv2.imread(file_path)
+        if original_image is None:
+            print("Erreur : Impossible de charger l'image.")
+            return
+
+        # appliquer le filtre gaussien sur l'image RGB
+        image_rgb_blurred = apply_bilateral_filter(original_image)
+
+        # convertit l'image lissée en Lab*
+        image = rgb_to_lab(image_rgb_blurred)
+
+        refresh_image()
+        update_instructions("Veuillez sélectionner le point 1.")
 
     
 def show_reset_button():
