@@ -20,15 +20,26 @@ original_image = None
 
 #  -----  fonctions de calcul de coût -----
 
+""" tient compte de la difference de couleur et de luminosite entre les pixels."""
 def cost_function_lab(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return np.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2)
 
+""" tient compte uniquement de la difference de luminosité (L) tout en ignorant la chrominance.
+-> cette fonction serait plus intéressante pour Mona Lisa car bcp de bruit ? """
 def cost_function_labDif(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return abs(L1 - L2)
+
+""" normalise les valeurs de luminance (L) et calcule la différence d'intensité lumineuse.
+-> cette fonction serait plus intéressante pour Mona Lisa car bcp de bruit ?"""
+def cost_function_intensity(point1, point2, image_lab):
+    intensity1 = image_lab[point1[0], point1[1], 0] / 255.0  # Normalisation
+    intensity2 = image_lab[point2[0], point2[1], 0] / 255.0  # Normalisation
+    return abs(intensity1 - intensity2)  # Différence d'intensité normalisée comme coût
+
 
 # Fonction de conversion RGB en Lab*
 def rgb_to_lab(image_rgb):
@@ -109,7 +120,7 @@ def find_shortest_path():
         # Utilisez les coordonnées brutes pour extraire les valeurs de pixels de l'image filtrée
         start_filtered = apply_coordinate_transform(start[0], start[1])
         end_filtered = apply_coordinate_transform(end[0], end[1])
-        path = dijkstra(image, start_filtered[::-1], end_filtered[::-1], cost_function_lab)
+        path = dijkstra(image, start_filtered[::-1], end_filtered[::-1], cost_function_labDif)
 
         # dessine le chemin sur l'image
         for i in range(len(path) - 1):
