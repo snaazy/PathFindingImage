@@ -1,10 +1,13 @@
 import heapq
+from queue import PriorityQueue
 from tkinter import filedialog
 import cv2
 import numpy as np
 import tkinter as tk
 from tkinter import Button, Label
 from PIL import Image, ImageTk
+import networkx as nx
+from collections import defaultdict
 
 # variables globales
 points = []
@@ -23,29 +26,38 @@ original_image = None
 """ Les fonctions de calculs de coûts dépendent du type d'image qu'on traite et des informations qu'on dispose sur cette image."""
 
 """ tient compte de la difference de couleur et de luminosite entre les pixels."""
+
+
 def cost_function_lab(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return np.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2)
 
+
 """ tient compte uniquement de la difference de luminosité (L) tout en ignorant la chrominance.
 -> cette fonction serait plus intéressante pour Mona Lisa car bcp de bruit ? """
+
+
 def cost_function_labDif(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return abs(L1 - L2)
 
+
 """ normalise les valeurs de luminance (L) et calcule la différence d'intensité lumineuse.
 -> cette fonction serait plus intéressante pour Mona Lisa car bcp de bruit ?"""
-def cost_function_intensity(point1, point2, image_lab):
-    intensity1 = image_lab[point1[0], point1[1], 0] / 255.0  
-    intensity2 = image_lab[point2[0], point2[1], 0] / 255.0  
-    return abs(intensity1 - intensity2)  
 
+
+def cost_function_intensity(point1, point2, image_lab):
+    intensity1 = image_lab[point1[0], point1[1], 0] / 255.0
+    intensity2 = image_lab[point2[0], point2[1], 0] / 255.0
+    return abs(intensity1 - intensity2)
 
 
 """ peut etre long a s'executer sur des images de grandes résolutions, plus la fenetre est grande, plus le calcul
 devient intensif.  """
+
+
 def cost_function_local_contrast(point1, point2, image_lab, window_size=5):
     height, width = image_lab.shape[:2]
     y1, x1 = point1
@@ -63,8 +75,8 @@ def cost_function_local_contrast(point1, point2, image_lab, window_size=5):
     y2_max = min(height - 1, y2 + half_window)
 
     # calcule la moyenne de la luminance autour de deux points
-    window1 = image_lab[y1_min:y1_max+1, x1_min:x1_max+1, 0]
-    window2 = image_lab[y2_min:y2_max+1, x2_min:x2_max+1, 0]
+    window1 = image_lab[y1_min : y1_max + 1, x1_min : x1_max + 1, 0]
+    window2 = image_lab[y2_min : y2_max + 1, x2_min : x2_max + 1, 0]
 
     mean_intensity1 = np.mean(window1)
     mean_intensity2 = np.mean(window2)
@@ -75,19 +87,20 @@ def cost_function_local_contrast(point1, point2, image_lab, window_size=5):
     return local_contrast
 
 
-
-
 # Fonction de conversion RGB en Lab*
 def rgb_to_lab(image_rgb):
     return cv2.cvtColor(image_rgb, cv2.COLOR_BGR2Lab)
+
 
 # Fonction de conversion Lab* en RGB
 def lab_to_rgb(image_lab):
     return cv2.cvtColor(image_lab, cv2.COLOR_Lab2BGR)
 
+
 # Fonction d'application du filtre gaussien
 def apply_bilateral_filter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75):
     return cv2.bilateralFilter(image_rgb, d, sigmaColor, sigmaSpace)
+
 
 # ---------------------------------------------------------------------------
 
@@ -99,10 +112,11 @@ def dijkstra(image_lab, start, end, cost_function):
     parent_map = np.full((height, width, 2), -1, dtype=int)
 
     distance_map[start] = 0
-    priority_queue = [(0, start)]
+    priority_queue = PriorityQueue()
+    priority_queue.put((0, start))
 
-    while priority_queue:
-        dist, current_node = heapq.heappop(priority_queue)
+    while not priority_queue.empty():
+        dist, current_node = priority_queue.get()
         if visited[current_node]:
             continue
         visited[current_node] = True
@@ -110,7 +124,16 @@ def dijkstra(image_lab, start, end, cost_function):
         if current_node == end:
             break
 
-        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]:  # 8-connexité
+        for dx, dy in [
+            (0, 1),
+            (1, 0),
+            (0, -1),
+            (-1, 0),
+            (1, 1),
+            (-1, 1),
+            (1, -1),
+            (-1, -1),
+        ]:  # 8-connexité
             new_x = current_node[1] + dx
             new_y = current_node[0] + dy
             neighbor = (new_y, new_x)
@@ -122,7 +145,7 @@ def dijkstra(image_lab, start, end, cost_function):
                 if new_dist < distance_map[neighbor]:
                     distance_map[neighbor] = new_dist
                     parent_map[neighbor] = current_node
-                    heapq.heappush(priority_queue, (new_dist, neighbor))
+                    priority_queue.put((new_dist, neighbor))
 
     path = [end]
     while path[-1] != start:
@@ -131,8 +154,10 @@ def dijkstra(image_lab, start, end, cost_function):
 
     return path[::-1]
 
+
 def update_instructions(text):
     instruction_label.config(text=text)
+
 
 def find_shortest_path():
     global image, points, canvas, imgtk
@@ -141,38 +166,57 @@ def find_shortest_path():
 
         start_filtered = apply_coordinate_transform(start[0], start[1])
         end_filtered = apply_coordinate_transform(end[0], end[1])
-        path = dijkstra(image, start_filtered[::-1], end_filtered[::-1], cost_function_local_contrast)
+
+        """ CHANGEZ ICI DANS L'APPEL DE LA FONCTION DIJKSTRA, LA FONCTION DE COUT,
+         cost_function_local_contrast PEUT ETRE TRES LONGUE A S'EXECUTER ! """
+        path = dijkstra(
+            image,
+            start_filtered[::-1],
+            end_filtered[::-1],
+            cost_function_local_contrast,
+        )
 
         # dessine le chemin sur l'image
         for i in range(len(path) - 1):
-            cv2.line(original_image, path[i][::-1], path[i+1][::-1], (0, 255, 0), 2)
+            cv2.line(original_image, path[i][::-1], path[i + 1][::-1], (0, 255, 0), 2)
 
         refresh_image()
 
-        update_instructions("Chemin trouvé. Utilisez le bouton Réinitialiser pour recommencer.")
-        print("Chemin le plus court :", path) # on affiche le chemin path trouvé
+        update_instructions(
+            "Chemin trouvé. Utilisez le bouton Réinitialiser pour recommencer. (vous pouvez voir les coordonnées du PCC dans le terminal !)"
+        )
+        formatted_path = "\n".join(
+            [f"Point {i+1}: ({point[0]}, {point[1]})" for i, point in enumerate(path)]
+        )
+        print("Chemin le plus court :\n", formatted_path)
 
 
 def show_button():
-    btn = Button(window, text="Trouver le chemin le plus court", command=find_shortest_path)
+    btn = Button(
+        window, text="Trouver le chemin le plus court", command=find_shortest_path
+    )
     btn.pack(side="bottom")
-
 
 
 def on_canvas_click(event):
     global points, points_raw, image, canvas, imgtk
     if len(points) < 2:
         x, y = event.x, event.y
-        points_raw.append((x, y))  
-        x_filtered, y_filtered = apply_coordinate_transform(x, y) 
-        points.append((x_filtered, y_filtered)) 
+        points_raw.append((x, y))
+        x_filtered, y_filtered = apply_coordinate_transform(x, y)
+        points.append((x_filtered, y_filtered))
         cv2.circle(original_image, (x_filtered, y_filtered), 5, (0, 255, 0), -1)
         refresh_image()
         if len(points) == 1:
-            update_instructions(f"Point {len(points)} sélectionné. Sélectionnez un autre point.")
+            update_instructions(
+                f"Point {len(points)} sélectionné. Sélectionnez un autre point."
+            )
         elif len(points) == 2:
-            update_instructions(f"Point 2 sélectionné : ({x}, {y}). Cliquez sur le bouton pour calculer le chemin.")
+            update_instructions(
+                f"Point 2 sélectionné : ({x}, {y}). Cliquez sur le bouton pour calculer le chemin."
+            )
             show_button()
+
 
 def apply_coordinate_transform(x, y):
     return x, y
@@ -205,7 +249,7 @@ def reset_selection():
         refresh_image()
         update_instructions("Veuillez sélectionner le point 1.")
 
-    
+
 def show_reset_button():
     reset_btn = Button(window, text="Réinitialiser", command=reset_selection)
     reset_btn.pack(side="bottom")
@@ -236,13 +280,15 @@ def load_image():
 
         update_instructions("Veuillez sélectionner le point 1.")
 
+
 def print_graph(graph):
     print("Graphe :")
     for node, neighbors in graph.items():
         print(f"Sommets {node} a pour voisins : {neighbors}")
 
+
 def create_graph(image_lab):
-    global original_image 
+    global original_image
     graph = {}
     height, width = image_lab.shape[:2]
 
@@ -254,14 +300,12 @@ def create_graph(image_lab):
             if y > 0:
                 neighbors.append((y - 1, x))
             graph[(y, x)] = neighbors
-            
+
             """ pour afficher chaque sommet en vert, logiquement ca devrait afficher une image remplie 
              en vert car chaque pixel = un sommet  """
-            # cv2.circle(original_image, (x, y), 1, (0, 255, 0), -1) 
+            # cv2.circle(original_image, (x, y), 1, (0, 255, 0), -1)
 
     return graph
-
-
 
 
 def main():
@@ -272,21 +316,21 @@ def main():
     instruction_label = Label(window, text="Veuillez sélectionner le point 1.")
     instruction_label.pack(side="top")
 
-    canvas = tk.Canvas(window, width=600, height=400) 
+    canvas = tk.Canvas(window, width=600, height=400)
     canvas.pack(side="top", fill="both", expand=True)
 
-    reset_selection() 
+    reset_selection()
 
     # création du graphe
     graph = create_graph(image)
 
-   # print_graph(graph)  # Imprimez le graphe
+    # print_graph(graph)  # Imprimez le graphe
 
     reset_btn = Button(window, text="Choisir une autre image", command=reset_selection)
     reset_btn.pack(side="bottom")
 
-    canvas.bind("<Button-1>", on_canvas_click) 
-  
+    canvas.bind("<Button-1>", on_canvas_click)
+
     window.mainloop()
 
 
