@@ -20,6 +20,8 @@ original_image = None
 
 #  -----  fonctions de calcul de coût -----
 
+""" Les fonctions de calculs de coûts dépendent du type d'image qu'on traite et des informations qu'on dispose sur cette image."""
+
 """ tient compte de la difference de couleur et de luminosite entre les pixels."""
 def cost_function_lab(point1, point2, image_lab):
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
@@ -36,9 +38,43 @@ def cost_function_labDif(point1, point2, image_lab):
 """ normalise les valeurs de luminance (L) et calcule la différence d'intensité lumineuse.
 -> cette fonction serait plus intéressante pour Mona Lisa car bcp de bruit ?"""
 def cost_function_intensity(point1, point2, image_lab):
-    intensity1 = image_lab[point1[0], point1[1], 0] / 255.0  # Normalisation
-    intensity2 = image_lab[point2[0], point2[1], 0] / 255.0  # Normalisation
-    return abs(intensity1 - intensity2)  # Différence d'intensité normalisée comme coût
+    intensity1 = image_lab[point1[0], point1[1], 0] / 255.0  
+    intensity2 = image_lab[point2[0], point2[1], 0] / 255.0  
+    return abs(intensity1 - intensity2)  
+
+
+
+""" peut etre long a s'executer sur des images de grandes résolutions, plus la fenetre est grande, plus le calcul
+devient intensif.  """
+def cost_function_local_contrast(point1, point2, image_lab, window_size=5):
+    height, width = image_lab.shape[:2]
+    y1, x1 = point1
+    y2, x2 = point2
+
+    half_window = window_size // 2
+    x1_min = max(0, x1 - half_window)
+    x1_max = min(width - 1, x1 + half_window)
+    y1_min = max(0, y1 - half_window)
+    y1_max = min(height - 1, y1 + half_window)
+
+    x2_min = max(0, x2 - half_window)
+    x2_max = min(width - 1, x2 + half_window)
+    y2_min = max(0, y2 - half_window)
+    y2_max = min(height - 1, y2 + half_window)
+
+    # calcule la moyenne de la luminance autour de deux points
+    window1 = image_lab[y1_min:y1_max+1, x1_min:x1_max+1, 0]
+    window2 = image_lab[y2_min:y2_max+1, x2_min:x2_max+1, 0]
+
+    mean_intensity1 = np.mean(window1)
+    mean_intensity2 = np.mean(window2)
+
+    # calcule le contraste local en utilisant la différence des moyennes de luminance
+    local_contrast = abs(mean_intensity1 - mean_intensity2)
+
+    return local_contrast
+
+
 
 
 # Fonction de conversion RGB en Lab*
@@ -98,29 +134,14 @@ def dijkstra(image_lab, start, end, cost_function):
 def update_instructions(text):
     instruction_label.config(text=text)
 
-""" def has_path(graph, start, end):               # todo: on s'en sert pas ?????
-    visited = set()
-    stack = [start]
-
-    while stack:
-        node = stack.pop()
-        if node == end:
-            return True
-        if node not in visited:
-            visited.add(node)
-            stack.extend(graph.get(node, []))
-
-    return False """
-
-
 def find_shortest_path():
     global image, points, canvas, imgtk
     if len(points) == 2:
         start, end = points
-        # Utilisez les coordonnées brutes pour extraire les valeurs de pixels de l'image filtrée
+
         start_filtered = apply_coordinate_transform(start[0], start[1])
         end_filtered = apply_coordinate_transform(end[0], end[1])
-        path = dijkstra(image, start_filtered[::-1], end_filtered[::-1], cost_function_labDif)
+        path = dijkstra(image, start_filtered[::-1], end_filtered[::-1], cost_function_local_contrast)
 
         # dessine le chemin sur l'image
         for i in range(len(path) - 1):
@@ -142,9 +163,9 @@ def on_canvas_click(event):
     global points, points_raw, image, canvas, imgtk
     if len(points) < 2:
         x, y = event.x, event.y
-        points_raw.append((x, y))  # Enregistrez les coordonnées brutes (sur l'image d'origine)
-        x_filtered, y_filtered = apply_coordinate_transform(x, y)  # Appliquez la transformation aux coordonnées brutes
-        points.append((x_filtered, y_filtered))  # Enregistrez les coordonnées filtrées (sur l'image filtrée)
+        points_raw.append((x, y))  
+        x_filtered, y_filtered = apply_coordinate_transform(x, y) 
+        points.append((x_filtered, y_filtered)) 
         cv2.circle(original_image, (x_filtered, y_filtered), 5, (0, 255, 0), -1)
         refresh_image()
         if len(points) == 1:
@@ -154,7 +175,6 @@ def on_canvas_click(event):
             show_button()
 
 def apply_coordinate_transform(x, y):
-    # Dans cette version, aucune transformation n'est effectuée
     return x, y
 
 
@@ -165,15 +185,7 @@ def refresh_image():
         imgtk = ImageTk.PhotoImage(image=im)
         canvas.create_image(0, 0, anchor="nw", image=imgtk)
 
-""" 
-def reset_selection():
-    global image, points, canvas, imgtk, shortest_path
-    points = []  # Réinitialiser les points sélectionnés
-    shortest_path = []  # Réinitialiser le chemin précédent
-    image = rgb_to_lab(cv2.imread('scanner.png'))
-    refresh_image()
-    update_instructions("Veuillez sélectionner le point 1.")
- """
+
 # Fonction pour réinitialiser la sélection de points
 def reset_selection():
     global image, original_image, points, canvas, imgtk
