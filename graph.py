@@ -1,4 +1,5 @@
 import heapq
+import time
 from tkinter import filedialog
 import cv2
 import numpy as np
@@ -18,6 +19,7 @@ imgtk = None
 graph = {}  # Le graphe représenté par un dictionnaire
 points_raw = []
 original_image = None
+delay_ms = 10  # ajustez ici le temps en ms pour le dessin progressif du chemin
 
 
 #  -----  fonctions de calcul de coût -----
@@ -167,29 +169,35 @@ def find_shortest_path():
         start_filtered = apply_coordinate_transform(start[0], start[1])
         end_filtered = apply_coordinate_transform(end[0], end[1])
 
-        """ CHANGEZ ICI DANS L'APPEL DE LA FONCTION DIJKSTRA, LA FONCTION DE COUT,
-         cost_function_local_contrast PEUT ETRE TRES LONGUE A S'EXECUTER ! """
         path = dijkstra(
             image,
             start_filtered[::-1],
             end_filtered[::-1],
-            # cost_function_local_contrast, 
-            cost_function_intensity,
+            cost_function_local_contrast,
         )
 
-        # dessine le chemin sur l'image
+        # dessine le chemin progressivement
         for i in range(len(path) - 1):
             cv2.line(original_image, path[i][::-1], path[i + 1][::-1], (0, 255, 0), 2)
-
-        refresh_image()
+            refresh_image()
+            canvas.update()
+            window.after(delay_ms)
 
         update_instructions(
             "Chemin trouvé. Utilisez le bouton Réinitialiser pour recommencer. (vous pouvez voir les coordonnées du PCC dans le terminal !)"
         )
+
         formatted_path = "\n".join(
-            [f"Point {i+1}: ({point[0]}, {point[1]})" for i, point in enumerate(path)]
+            [
+                f"Sommet {i+1} de coordonnées: ({point[0]}, {point[1]})"
+                for i, point in enumerate(path)
+            ]
         )
-        print("Chemin le plus court :\n", formatted_path)
+        print(
+            "*** PLUS COURT CHEMIN ***\n",
+            formatted_path,
+            "\n *** FIN DES COORDONNEES DU PLUS COURT CHEMIN ***",
+        )
 
 
 def show_button():
