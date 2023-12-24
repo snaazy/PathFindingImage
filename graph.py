@@ -1,5 +1,4 @@
 import heapq
-from queue import PriorityQueue
 from tkinter import filedialog
 import cv2
 import numpy as np
@@ -174,7 +173,8 @@ def find_shortest_path():
             image,
             start_filtered[::-1],
             end_filtered[::-1],
-            cost_function_local_contrast,
+            # cost_function_local_contrast, 
+            cost_function_intensity,
         )
 
         # dessine le chemin sur l'image
