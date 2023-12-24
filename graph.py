@@ -15,7 +15,7 @@ image = None
 window = None
 canvas = None
 instruction_label = None
-imgtk = None  
+imgtk = None
 graph = {}  # Le graphe représenté par un dictionnaire
 points_raw = []
 original_image = None
@@ -104,6 +104,7 @@ def apply_bilateral_filter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75):
 
 # ---------------------------------------------------------------------------
 
+
 # Algorithme de Dijkstra pour le calcul du plus court chemin
 def dijkstra(image_lab, start, end, cost_function):
     height, width = image_lab.shape[:2]
@@ -112,11 +113,10 @@ def dijkstra(image_lab, start, end, cost_function):
     parent_map = np.full((height, width, 2), -1, dtype=int)
 
     distance_map[start] = 0
-    priority_queue = PriorityQueue()
-    priority_queue.put((0, start))
+    priority_queue = [(0, start)]
 
-    while not priority_queue.empty():
-        dist, current_node = priority_queue.get()
+    while priority_queue:
+        dist, current_node = heapq.heappop(priority_queue)
         if visited[current_node]:
             continue
         visited[current_node] = True
@@ -145,7 +145,7 @@ def dijkstra(image_lab, start, end, cost_function):
                 if new_dist < distance_map[neighbor]:
                     distance_map[neighbor] = new_dist
                     parent_map[neighbor] = current_node
-                    priority_queue.put((new_dist, neighbor))
+                    heapq.heappush(priority_queue, (new_dist, neighbor))
 
     path = [end]
     while path[-1] != start:
