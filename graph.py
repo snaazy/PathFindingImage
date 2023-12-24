@@ -15,7 +15,7 @@ image = None
 window = None
 canvas = None
 instruction_label = None
-imgtk = None  # Pour stocker l'image Tkinter
+imgtk = None  
 graph = {}  # Le graphe représenté par un dictionnaire
 points_raw = []
 original_image = None
@@ -104,7 +104,7 @@ def apply_bilateral_filter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75):
 
 # ---------------------------------------------------------------------------
 
-
+# Algorithme de Dijkstra pour le calcul du plus court chemin
 def dijkstra(image_lab, start, end, cost_function):
     height, width = image_lab.shape[:2]
     visited = np.full((height, width), False, dtype=bool)
@@ -159,6 +159,7 @@ def update_instructions(text):
     instruction_label.config(text=text)
 
 
+# Recherche du chemin le plus court
 def find_shortest_path():
     global image, points, canvas, imgtk
     if len(points) == 2:
@@ -230,7 +231,20 @@ def refresh_image():
         canvas.create_image(0, 0, anchor="nw", image=imgtk)
 
 
-# Fonction pour réinitialiser la sélection de points
+def reset_points():
+    global points, original_image, graph
+    points = []
+    original_image = original_image.copy()  # Réinitialisez l'image originale
+    clear_path()  # Ajoutez cette ligne pour effacer le chemin
+    refresh_image()
+    update_instructions("Veuillez sélectionner le point 1.")
+
+
+def clear_path():
+    global original_image
+    original_image = original_image.copy()
+
+
 def reset_selection():
     global image, original_image, points, canvas, imgtk
     points = []
@@ -242,7 +256,7 @@ def reset_selection():
             print("Erreur : Impossible de charger l'image.")
             return
 
-        # Appliquer le filtre bilatéral et convertir en Lab*
+        # applique le filtre bilatéral et convertir en Lab*
         image_rgb_blurred = apply_bilateral_filter(original_image)
         image = rgb_to_lab(image_rgb_blurred)
 
@@ -329,6 +343,12 @@ def main():
     reset_btn = Button(window, text="Choisir une autre image", command=reset_selection)
     reset_btn.pack(side="bottom")
 
+    reset_button = Button(
+        window,
+        text="Recommencer sur cette image (conserve l'ancien chemin)",
+        command=reset_points,
+    )
+    reset_button.pack(side="bottom")
     canvas.bind("<Button-1>", on_canvas_click)
 
     window.mainloop()
