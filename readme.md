@@ -17,7 +17,8 @@ Assurez-vous d'avoir installé les bibliothèques Python suivantes :
 
 Vous pouvez les installer en utilisant `pip` :
 ```bash
-pip install opencv-python numpy pillow ``` 
+pip install opencv-python numpy pillow
+```
 
 
 ## Utilisation
