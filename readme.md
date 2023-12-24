@@ -13,7 +13,6 @@ Assurez-vous d'avoir installé les bibliothèques Python suivantes :
 - `numpy`
 - `tkinter` (pour l'interface graphique)
 - `PIL` (Pillow)
-- `networkx` (pour la création du graphe)
 
 Vous pouvez les installer en utilisant `pip` :
 ```bash
