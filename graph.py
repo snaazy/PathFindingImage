@@ -14,7 +14,8 @@ canvas = None
 instruction_label = None
 imgtk = None  # Pour stocker l'image Tkinter
 graph = {}  # Le graphe représenté par un dictionnaire
-
+points_raw = []
+original_image = None
 
 
 #  -----  fonctions de calcul de coût -----
@@ -62,7 +63,7 @@ def dijkstra(image_lab, start, end, cost_function):
         if current_node == end:
             break
 
-        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:  # 4-connexité
+        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]:  # 8-connexité
             new_x = current_node[1] + dx
             new_y = current_node[0] + dy
             neighbor = (new_y, new_x)
@@ -86,7 +87,7 @@ def dijkstra(image_lab, start, end, cost_function):
 def update_instructions(text):
     instruction_label.config(text=text)
 
-def has_path(graph, start, end):               # todo: on s'en sert pas ?????
+""" def has_path(graph, start, end):               # todo: on s'en sert pas ?????
     visited = set()
     stack = [start]
 
@@ -98,21 +99,25 @@ def has_path(graph, start, end):               # todo: on s'en sert pas ?????
             visited.add(node)
             stack.extend(graph.get(node, []))
 
-    return False
+    return False """
 
 
 def find_shortest_path():
-    global image, points, canvas, imgtk, graph
+    global image, points, canvas, imgtk
     if len(points) == 2:
         start, end = points
-        path = dijkstra(image, start[::-1], end[::-1], cost_function_lab)
+        # Utilisez les coordonnées brutes pour extraire les valeurs de pixels de l'image filtrée
+        start_filtered = apply_coordinate_transform(start[0], start[1])
+        end_filtered = apply_coordinate_transform(end[0], end[1])
+        path = dijkstra(image, start_filtered[::-1], end_filtered[::-1], cost_function_lab)
 
         # dessine le chemin sur l'image
         for i in range(len(path) - 1):
-            cv2.line(image, path[i][::-1], path[i+1][::-1], (0, 255, 0), 2)
+            cv2.line(original_image, path[i][::-1], path[i+1][::-1], (0, 255, 0), 2)
 
         refresh_image()
 
+        update_instructions("Chemin trouvé. Utilisez le bouton Réinitialiser pour recommencer.")
         print("Chemin le plus court :", path) # on affiche le chemin path trouvé
 
 
@@ -123,24 +128,32 @@ def show_button():
 
 
 def on_canvas_click(event):
-    global points, image, canvas, imgtk
+    global points, points_raw, image, canvas, imgtk
     if len(points) < 2:
         x, y = event.x, event.y
-        points.append((x, y))
-        cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
+        points_raw.append((x, y))  # Enregistrez les coordonnées brutes (sur l'image d'origine)
+        x_filtered, y_filtered = apply_coordinate_transform(x, y)  # Appliquez la transformation aux coordonnées brutes
+        points.append((x_filtered, y_filtered))  # Enregistrez les coordonnées filtrées (sur l'image filtrée)
+        cv2.circle(original_image, (x_filtered, y_filtered), 5, (0, 255, 0), -1)
         refresh_image()
         if len(points) == 1:
-            update_instructions(f"Point 1 sélectionné : ({x}, {y}). Veuillez sélectionner le point 2.")
+            update_instructions(f"Point {len(points)} sélectionné. Sélectionnez un autre point.")
         elif len(points) == 2:
             update_instructions(f"Point 2 sélectionné : ({x}, {y}). Cliquez sur le bouton pour calculer le chemin.")
             show_button()
 
+def apply_coordinate_transform(x, y):
+    # Dans cette version, aucune transformation n'est effectuée
+    return x, y
+
+
 def refresh_image():
-    global canvas, image, window, imgtk
-    image_for_tk = lab_to_rgb(image)
-    im = Image.fromarray(image_for_tk)
-    imgtk = ImageTk.PhotoImage(image=im)
-    canvas.create_image(0, 0, anchor="nw", image=imgtk)
+    global canvas, original_image, window, imgtk
+    if original_image is not None:
+        im = Image.fromarray(cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
+        imgtk = ImageTk.PhotoImage(image=im)
+        canvas.create_image(0, 0, anchor="nw", image=imgtk)
+
 """ 
 def reset_selection():
     global image, points, canvas, imgtk, shortest_path
@@ -152,21 +165,18 @@ def reset_selection():
  """
 # Fonction pour réinitialiser la sélection de points
 def reset_selection():
-    global image, points, canvas, imgtk
+    global image, original_image, points, canvas, imgtk
     points = []
 
     file_path = filedialog.askopenfilename()
     if file_path:
-        # charge l'image
         original_image = cv2.imread(file_path)
         if original_image is None:
             print("Erreur : Impossible de charger l'image.")
             return
 
-        # appliquer le filtre gaussien sur l'image RGB
+        # Appliquer le filtre bilatéral et convertir en Lab*
         image_rgb_blurred = apply_bilateral_filter(original_image)
-
-        # convertit l'image lissée en Lab*
         image = rgb_to_lab(image_rgb_blurred)
 
         refresh_image()
@@ -209,6 +219,7 @@ def print_graph(graph):
         print(f"Sommets {node} a pour voisins : {neighbors}")
 
 def create_graph(image_lab):
+    global original_image 
     graph = {}
     height, width = image_lab.shape[:2]
 
@@ -216,12 +227,18 @@ def create_graph(image_lab):
         for x in range(width):
             neighbors = []
             if x > 0:
-                neighbors.append((y, x - 1))  # connexion horizontales
+                neighbors.append((y, x - 1))
             if y > 0:
-                neighbors.append((y - 1, x))  # connexions verticales
+                neighbors.append((y - 1, x))
             graph[(y, x)] = neighbors
+            
+            """ pour afficher chaque sommet en vert, logiquement ca devrait afficher une image remplie 
+             en vert car chaque pixel = un sommet  """
+            # cv2.circle(original_image, (x, y), 1, (0, 255, 0), -1) 
 
     return graph
+
+
 
 
 def main():
@@ -242,7 +259,7 @@ def main():
 
    # print_graph(graph)  # Imprimez le graphe
 
-    reset_btn = Button(window, text="Réinitialiser", command=reset_selection)
+    reset_btn = Button(window, text="Choisir une autre image", command=reset_selection)
     reset_btn.pack(side="bottom")
 
     canvas.bind("<Button-1>", on_canvas_click) 
