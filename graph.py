@@ -6,7 +6,6 @@ import numpy as np
 import tkinter as tk
 from tkinter import Button, Label
 from PIL import Image, ImageTk
-import networkx as nx
 from collections import defaultdict
 
 # variables globales
