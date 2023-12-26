@@ -22,7 +22,7 @@ delay_ms = 10  # ajustez ici le temps en ms pour le dessin progressif du chemin
 cost_function_choice = None
 
 
-#  -----  fonctions de calcul de coût -----
+#  -----  Fonctions de calcul de coût -----
 
 """ Les fonctions de calculs de coûts dépendent du type d'image qu'on traite et des informations qu'on dispose sur cette image."""
 
@@ -30,6 +30,15 @@ cost_function_choice = None
 
 
 def cost_function_lab(point1, point2, image_lab):
+    """
+    Calcule la distance de couleur entre deux points dans l'espace de couleur Lab.
+    Utilise les composantes L, a, et b pour calculer la distance euclidienne.
+
+    :param point1: Tuple des coordonnées du premier point.
+    :param point2: Tuple des coordonnées du second point.
+    :param image_lab: Image dans l'espace de couleur Lab.
+    :return: Distance euclidienne entre les deux points dans l'espace Lab.
+    """
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return np.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2)
@@ -40,6 +49,15 @@ def cost_function_lab(point1, point2, image_lab):
 
 
 def cost_function_labDif(point1, point2, image_lab):
+    """
+    Calcule la différence de luminosité (composante L) entre deux points dans l'espace Lab,
+    en ignorant les composantes de couleur a et b.
+
+    :param point1: Tuple des coordonnées du premier point.
+    :param point2: Tuple des coordonnées du second point.
+    :param image_lab: Image dans l'espace de couleur Lab.
+    :return: Différence absolue des composantes L entre les deux points.
+    """
     L1, a1, b1 = image_lab[point1[0], point1[1]].astype(int)
     L2, a2, b2 = image_lab[point2[0], point2[1]].astype(int)
     return abs(L1 - L2)
@@ -90,16 +108,36 @@ def cost_function_local_contrast(point1, point2, image_lab, window_size=5):
 
 # Fonction de conversion RGB en Lab*
 def rgb_to_lab(image_rgb):
+    """
+    Convertit une image du format RGB en Lab.
+
+    :param image_rgb: Image en format RGB.
+    :return: Image convertie en format Lab.
+    """
     return cv2.cvtColor(image_rgb, cv2.COLOR_BGR2Lab)
 
 
 # Fonction de conversion Lab* en RGB
 def lab_to_rgb(image_lab):
+    """
+    Convertit une image du format Lab en RGB.
+
+    :param image_lab: Image en format Lab.
+    :return: Image convertie en format RGB.
+    """
     return cv2.cvtColor(image_lab, cv2.COLOR_Lab2BGR)
 
 
-# Fonction d'application du filtre gaussien
 def apply_bilateral_filter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75):
+    """
+    Applique un filtre bilatéral à l'image RGB donnée pour réduire le bruit.
+
+    :param image_rgb: Image en format RGB.
+    :param d: Diamètre de chaque pixel voisin.
+    :param sigmaColor: Filtre sigma dans l'espace de couleur.
+    :param sigmaSpace: Filtre sigma dans l'espace de coordonnées.
+    :return: Image RGB filtrée.
+    """
     return cv2.bilateralFilter(image_rgb, d, sigmaColor, sigmaSpace)
 
 
@@ -161,6 +199,19 @@ def update_instructions(text):
 
 
 def chemin_couleur_intensite(image_lab, path):
+    """
+    Trace le chemin le plus court entre deux points sur une image et colorie chaque segment
+    en fonction de l'intensité moyenne des pixels le long du segment.
+
+    :param image_lab: Image dans l'espace de couleur Lab.
+    :param path: Liste des points (y, x) constituant le chemin le plus court.
+    :return: Image avec le chemin tracé et colorié en fonction de l'intensité.
+
+    Cette fonction copie d'abord l'image originale. Pour chaque segment du chemin, elle calcule
+    l'intensité moyenne entre deux points consécutifs. Cette intensité est ensuite utilisée pour
+    déterminer la couleur du segment grâce à la fonction `determiner_couleur_intensite`.
+    Chaque segment est dessiné sur l'image avec la couleur correspondante à son intensité.
+    """
     colored_path_image = original_image.copy()
     for i in range(len(path) - 1):
         point1 = path[i]
@@ -169,36 +220,55 @@ def chemin_couleur_intensite(image_lab, path):
         color = determiner_couleur_intensite(avg_intensity)
         cv2.line(colored_path_image, point1[::-1], point2[::-1], color, 2)
     return colored_path_image
-    return colored_path_image
 
 
 def determiner_couleur_intensite(intensity):
-    normalized_intensity = intensity / 255.0
+    """
+    Détermine la couleur d'un segment de chemin en fonction de son intensité.
 
-    if normalized_intensity < 0.25:
+    :param intensity: Valeur d'intensité du segment (valeur entière de 0 à 255).
+    :return: Tuple représentant la couleur (R, G, B) correspondante à l'intensité.
+
+    La fonction normalise d'abord l'intensité sur une échelle de 0 à 1. Ensuite, en fonction
+    de cette valeur normalisée, elle détermine la couleur du segment en interpolant entre
+    différentes couleurs : du bleu au cyan, du cyan au vert, du vert au jaune, et du jaune
+    au rouge. Cette interpolation crée un effet de gradient, permettant une visualisation
+    plus détaillée et graduelle des changements d'intensité le long du chemin.
+    """
+    intensite_normalise = intensity / 255.0
+
+    if intensite_normalise < 0.25:
         # Bleu à cyan
         return interpoler_couleurs(
-            (0, 0, 255), (0, 255, 255), normalized_intensity / 0.25
+            (0, 0, 255), (0, 255, 255), intensite_normalise / 0.25
         )
-    elif normalized_intensity < 0.5:
+    elif intensite_normalise < 0.5:
         # Cyan à vert
         return interpoler_couleurs(
-            (0, 255, 255), (0, 255, 0), (normalized_intensity - 0.25) / 0.25
+            (0, 255, 255), (0, 255, 0), (intensite_normalise - 0.25) / 0.25
         )
-    elif normalized_intensity < 0.75:
+    elif intensite_normalise < 0.75:
         # Vert à jaune
         return interpoler_couleurs(
-            (0, 255, 0), (255, 255, 0), (normalized_intensity - 0.5) / 0.25
+            (0, 255, 0), (255, 255, 0), (intensite_normalise - 0.5) / 0.25
         )
     else:
         # Jaune à rouge
         return interpoler_couleurs(
-            (255, 255, 0), (255, 0, 0), (normalized_intensity - 0.75) / 0.25
+            (255, 255, 0), (255, 0, 0), (intensite_normalise - 0.75) / 0.25
         )
 
 
 def interpoler_couleurs(color_start, color_end, factor):
-    # interpoler entre deux couleurs RGB
+    """
+    Interpole entre deux couleurs RGB selon un facteur donné.
+
+    :param color_start: Tuple RGB de la couleur de départ (par exemple, (255, 0, 0) pour le rouge).
+    :param color_end: Tuple RGB de la couleur de fin (par exemple, (0, 255, 0) pour le vert).
+    :param factor: Un facteur de 0 à 1 indiquant le degré d'interpolation.
+    :return: Tuple RGB représentant la couleur interpolée.
+
+    """
     return tuple(
         int(start_val + (end_val - start_val) * factor)
         for start_val, end_val in zip(color_start, color_end)
@@ -227,6 +297,20 @@ def selection_fonction_cout():
 
 
 def intensite_moyenne(image_lab, point1, point2):
+    """
+    Calcule l'intensité moyenne des pixels le long d'une ligne entre deux points sur une image.
+
+    :param image_lab: Image dans l'espace de couleur Lab.
+    :param point1: Tuple (y, x) représentant le premier point de la ligne.
+    :param point2: Tuple (y, x) représentant le second point de la ligne.
+    :return: La valeur moyenne d'intensité des pixels le long de la ligne.
+
+    Cette fonction dessine d'abord une ligne entre `point1` et `point2` sur une image noire
+    de la même taille que `image_lab`. Elle identifie ensuite les pixels où la ligne a été
+    dessinée. Si aucun pixel n'est trouvé sur la ligne (ligne vide), elle retourne 0.
+    Sinon, elle calcule et retourne l'intensité moyenne des pixels le long de cette ligne
+    en utilisant la composante de luminance (L) de l'espace de couleur Lab.
+    """
     line = cv2.line(np.zeros(image_lab.shape[:2]), point1[::-1], point2[::-1], 1, 1)
     indices = np.where(line == 1)
     if len(indices[0]) == 0:  # Aucun pixel sur la ligne
@@ -237,6 +321,27 @@ def intensite_moyenne(image_lab, point1, point2):
 
 # Recherche du chemin le plus court
 def trouver_pcc():
+    """
+    Trouve et affiche le plus court chemin (PCC) entre deux points sélectionnés sur l'image.
+
+    Cette fonction utilise l'algorithme de Dijkstra pour calculer le plus court chemin entre
+    deux points sélectionnés, en fonction de la fonction de coût choisie. Le chemin est ensuite
+    dessiné sur l'image, avec les couleurs variant selon l'intensité moyenne des pixels sur
+    le chemin.
+
+    :global image: L'image sur laquelle le PCC est calculé.
+    :global points: Liste des points sélectionnés (départ et arrivée).
+    :global canvas: Le canvas de Tkinter utilisé pour l'affichage.
+    :global imgtk: ImageTk utilisée pour l'affichage sur le canvas.
+
+    La fonction vérifie d'abord s'il y a exactement deux points sélectionnés. Si oui, elle
+    détermine la fonction de coût en fonction du choix de l'utilisateur. L'algorithme de Dijkstra
+    est ensuite exécuté pour trouver le chemin. Chaque segment du chemin est coloré en fonction
+    de l'intensité moyenne des pixels entre les deux points du segment. Le chemin est dessiné
+    progressivement, avec un délai entre chaque segment pour une visualisation dynamique.
+
+    Les instructions et les coordonnées du chemin sont mises à jour en conséquence.
+    """
     global image, points, canvas, imgtk
     if len(points) == 2:
         start, end = points
@@ -294,9 +399,7 @@ def update_canvas_with_colored_image(colored_path_image):
 
 
 def show_button():
-    btn = Button(
-        window, text="Trouver le chemin le plus court", command=trouver_pcc
-    )
+    btn = Button(window, text="Trouver le chemin le plus court", command=trouver_pcc)
     btn.pack(side="bottom")
 
 
@@ -403,6 +506,21 @@ def print_graph(graph):
 
 
 def create_graph(image_lab):
+    """
+    Crée un graphe représentant l'image donnée, où chaque pixel est un sommet.
+
+    Cette fonction crée un graphe basé sur les pixels de l'image fournie. Chaque pixel est
+    traité comme un sommet du graphe. Les voisins de chaque pixel (sommet) sont ajoutés en
+    considérant une connectivité de 4 (haut, bas, gauche, droite).
+
+    :param image_lab: L'image sur laquelle le graphe est basé, généralement convertie en
+                      espace de couleur Lab* pour les calculs de coût.
+    :global original_image: L'image originale, utilisée ici pour référence.
+
+    :return: Un dictionnaire représentant le graphe. Les clés sont des tuples (y, x)
+             représentant les coordonnées des sommets (pixels), et les valeurs sont des
+             listes de tuples représentant les voisins de chaque sommet.
+    """
     global original_image
     graph = {}
     height, width = image_lab.shape[:2]
