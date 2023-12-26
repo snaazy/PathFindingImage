@@ -22,7 +22,7 @@ pip install opencv-python numpy pillow
 
 ## Utilisation
 
-1. Exécutez le script Python `graph.py`.
+1. Exécutez le script Python `main.py` (une fois dans le dossier /src).
 2. Une fenêtre s'ouvrira avec une interface graphique.
 3. Cliquez sur le bouton "Choisir une image" pour sélectionner une image depuis votre ordinateur.
 4. Sélectionnez deux points en cliquant sur l'image. Le premier point sera le point de départ, et le deuxième sera le point d'arrivée.
