@@ -160,7 +160,52 @@ def update_instructions(text):
     instruction_label.config(text=text)
 
 
-def create_cost_function_selector():
+def chemin_couleur_intensite(image_lab, path):
+    colored_path_image = original_image.copy()
+    for i in range(len(path) - 1):
+        point1 = path[i]
+        point2 = path[i + 1]
+        avg_intensity = intensite_moyenne(image_lab, point1, point2)
+        color = determiner_couleur_intensite(avg_intensity)
+        cv2.line(colored_path_image, point1[::-1], point2[::-1], color, 2)
+    return colored_path_image
+    return colored_path_image
+
+
+def determiner_couleur_intensite(intensity):
+    normalized_intensity = intensity / 255.0
+
+    if normalized_intensity < 0.25:
+        # Bleu à cyan
+        return interpoler_couleurs(
+            (0, 0, 255), (0, 255, 255), normalized_intensity / 0.25
+        )
+    elif normalized_intensity < 0.5:
+        # Cyan à vert
+        return interpoler_couleurs(
+            (0, 255, 255), (0, 255, 0), (normalized_intensity - 0.25) / 0.25
+        )
+    elif normalized_intensity < 0.75:
+        # Vert à jaune
+        return interpoler_couleurs(
+            (0, 255, 0), (255, 255, 0), (normalized_intensity - 0.5) / 0.25
+        )
+    else:
+        # Jaune à rouge
+        return interpoler_couleurs(
+            (255, 255, 0), (255, 0, 0), (normalized_intensity - 0.75) / 0.25
+        )
+
+
+def interpoler_couleurs(color_start, color_end, factor):
+    # interpoler entre deux couleurs RGB
+    return tuple(
+        int(start_val + (end_val - start_val) * factor)
+        for start_val, end_val in zip(color_start, color_end)
+    )
+
+
+def selection_fonction_cout():
     global window, cost_function_choice
     cost_function_choice = IntVar()
     frame = tk.Frame(window)
@@ -181,8 +226,17 @@ def create_cost_function_selector():
     ).pack(anchor=tk.W)
 
 
+def intensite_moyenne(image_lab, point1, point2):
+    line = cv2.line(np.zeros(image_lab.shape[:2]), point1[::-1], point2[::-1], 1, 1)
+    indices = np.where(line == 1)
+    if len(indices[0]) == 0:  # Aucun pixel sur la ligne
+        return 0
+    intensities = image_lab[indices[0], indices[1], 0]
+    return np.mean(intensities)
+
+
 # Recherche du chemin le plus court
-def find_shortest_path():
+def trouver_pcc():
     global image, points, canvas, imgtk
     if len(points) == 2:
         start, end = points
@@ -206,7 +260,11 @@ def find_shortest_path():
 
         # dessine le chemin progressivement
         for i in range(len(path) - 1):
-            cv2.line(original_image, path[i][::-1], path[i + 1][::-1], (0, 255, 0), 2)
+            point1 = path[i]
+            point2 = path[i + 1]
+            avg_intensity = intensite_moyenne(image, point1, point2)
+            color = determiner_couleur_intensite(avg_intensity)
+            cv2.line(original_image, point1[::-1], point2[::-1], color, 2)
             refresh_image()
             canvas.update()
             window.after(delay_ms)
@@ -228,9 +286,16 @@ def find_shortest_path():
         )
 
 
+def update_canvas_with_colored_image(colored_path_image):
+    global canvas, imgtk
+    im = Image.fromarray(cv2.cvtColor(colored_path_image, cv2.COLOR_BGR2RGB))
+    imgtk = ImageTk.PhotoImage(image=im)
+    canvas.create_image(0, 0, anchor="nw", image=imgtk)
+
+
 def show_button():
     btn = Button(
-        window, text="Trouver le chemin le plus court", command=find_shortest_path
+        window, text="Trouver le chemin le plus court", command=trouver_pcc
     )
     btn.pack(side="bottom")
 
@@ -369,7 +434,7 @@ def main():
     canvas = tk.Canvas(window, width=600, height=400)
     canvas.pack(side="top", fill="both", expand=True)
 
-    create_cost_function_selector()
+    selection_fonction_cout()
 
     reset_selection()
 
