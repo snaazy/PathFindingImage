@@ -1,6 +1,6 @@
 import heapq
 import time
-from tkinter import filedialog
+from tkinter import IntVar, Radiobutton, filedialog
 import cv2
 import numpy as np
 import tkinter as tk
@@ -19,6 +19,7 @@ graph = {}  # Le graphe représenté par un dictionnaire
 points_raw = []
 original_image = None
 delay_ms = 10  # ajustez ici le temps en ms pour le dessin progressif du chemin
+cost_function_choice = None
 
 
 #  -----  fonctions de calcul de coût -----
@@ -159,21 +160,49 @@ def update_instructions(text):
     instruction_label.config(text=text)
 
 
+def create_cost_function_selector():
+    global window, cost_function_choice
+    cost_function_choice = IntVar()
+    frame = tk.Frame(window)
+    frame.pack(side="top")
+
+    Label(frame, text="Choisissez une fonction de coût :").pack()
+    Radiobutton(frame, text="Lab", variable=cost_function_choice, value=1).pack(
+        anchor=tk.W
+    )
+    Radiobutton(frame, text="LabDif", variable=cost_function_choice, value=2).pack(
+        anchor=tk.W
+    )
+    Radiobutton(frame, text="Intensité", variable=cost_function_choice, value=3).pack(
+        anchor=tk.W
+    )
+    Radiobutton(
+        frame, text="Contraste Local", variable=cost_function_choice, value=4
+    ).pack(anchor=tk.W)
+
+
 # Recherche du chemin le plus court
 def find_shortest_path():
     global image, points, canvas, imgtk
     if len(points) == 2:
         start, end = points
+        # selection de la fonction de cout
+        if cost_function_choice.get() == 1:
+            cost_function = cost_function_lab
+        elif cost_function_choice.get() == 2:
+            cost_function = cost_function_labDif
+        elif cost_function_choice.get() == 3:
+            cost_function = cost_function_intensity
+        elif cost_function_choice.get() == 4:
+            cost_function = cost_function_local_contrast
+        else:
+            print("Veuillez sélectionner une fonction de coût")
+            return
+
+        path = dijkstra(image, start[::-1], end[::-1], cost_function)
 
         start_filtered = apply_coordinate_transform(start[0], start[1])
         end_filtered = apply_coordinate_transform(end[0], end[1])
-
-        path = dijkstra(
-            image,
-            start_filtered[::-1],
-            end_filtered[::-1],
-            cost_function_local_contrast,
-        )
 
         # dessine le chemin progressivement
         for i in range(len(path) - 1):
@@ -241,8 +270,8 @@ def refresh_image():
 def reset_points():
     global points, original_image, graph
     points = []
-    original_image = original_image.copy()  # Réinitialisez l'image originale
-    clear_path()  # Ajoutez cette ligne pour effacer le chemin
+    original_image = original_image.copy()  # reinitialiser l'image originale
+    clear_path()
     refresh_image()
     update_instructions("Veuillez sélectionner le point 1.")
 
@@ -339,6 +368,8 @@ def main():
 
     canvas = tk.Canvas(window, width=600, height=400)
     canvas.pack(side="top", fill="both", expand=True)
+
+    create_cost_function_selector()
 
     reset_selection()
 
