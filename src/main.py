@@ -12,7 +12,7 @@ from collections import defaultdict
 from image_processing import *
 
 
-# Déclaration des variables globales
+# Variables globales
 points = []
 image = None
 window = None
@@ -22,7 +22,7 @@ imgtk = None
 graph = {}  # Le graphe représenté par un dictionnaire
 points_raw = []
 original_image = None
-delay_ms = 10  # ajustez ici le temps en ms pour le dessin progressif du chemin
+delay_ms = 1  # ajustez ici le temps en ms pour le dessin progressif du chemin
 cost_function_choice = None
 
 
@@ -243,7 +243,10 @@ def selection_fonction_cout():
         anchor=tk.W
     )
     Radiobutton(
-        frame, text="Contraste Local (peut être long)", variable=cost_function_choice, value=4
+        frame,
+        text="Contraste Local (peut être long)",
+        variable=cost_function_choice,
+        value=4,
     ).pack(anchor=tk.W)
 
 
