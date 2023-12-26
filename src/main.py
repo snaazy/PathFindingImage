@@ -243,7 +243,7 @@ def selection_fonction_cout():
         anchor=tk.W
     )
     Radiobutton(
-        frame, text="Contraste Local", variable=cost_function_choice, value=4
+        frame, text="Contraste Local (peut être long)", variable=cost_function_choice, value=4
     ).pack(anchor=tk.W)
 
 
