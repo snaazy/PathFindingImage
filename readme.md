@@ -28,6 +28,10 @@ pip install opencv-python numpy pillow
 4. Sélectionnez deux points en cliquant sur l'image. Le premier point sera le point de départ, et le deuxième sera le point d'arrivée.
 5. Cliquez sur le bouton "Trouver le chemin le plus court" pour calculer le chemin le plus court entre les deux points en utilisant l'algorithme de Dijkstra.
 
+## Visualisation du chemin
+
+Lorsque le plus court chemin est calculé, il est affiché de manière progressive sur l'image selectionnée. Chaque segment du chemin est coloré en fonction de l'intensité moyenne des pixels le long du segment, ce qui permet une visualisation détaillée des variations d'intensité sur le chemin.
+
 ## Fonctions de coût
 
 Le projet propose différentes fonctions de coût pour évaluer la différence entre les pixels voisins lors du calcul du chemin le plus court. Vous pouvez changer la fonction de coût utilisée en modifiant l'appel à la fonction `dijkstra` dans la fonction `find_shortest_path` du script `main.py`. Les fonctions de coût disponibles sont :
